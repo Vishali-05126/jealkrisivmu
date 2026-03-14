@@ -1,0 +1,755 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LifeLink — Sign In</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --blue:    #1D4ED8;
+    --blue-dk: #1E3A8A;
+    --blue-lt: #3B82F6;
+    --blue-xl: #EFF6FF;
+    --green:   #2563EB;
+    --green-lt:#DBEAFE;
+    --red:     #EF4444;
+    --red-lt:  #FEE2E2;
+    --purple:  #1D4ED8;
+    --purple-lt:#E0E7FF;
+    --amber:   #3B82F6;
+    --amber-lt:#EFF6FF;
+    --border:  #DBEAFE;
+    --text:    #0F172A;
+    --text2:   #475569;
+    --muted:   #94A3B8;
+    --white:   #FFFFFF;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: linear-gradient(135deg, #FFFFFF 0%, #F5F9FF 50%, #EAF2FF 100%);
+    min-height: 100vh; display: flex; flex-direction: column;
+    color: var(--text);
+  }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 40px;
+    background: rgba(255,255,255,0.8); backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 10;
+  }
+  .logo {
+    display: flex; align-items: center; gap: 10px;
+    font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 800; color: var(--blue);
+    text-decoration: none;
+  }
+  .logo-icon {
+    width: 32px; height: 32px; background: var(--blue); border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100%{ box-shadow: 0 0 0 0 rgba(29,78,216,0.3); }
+    50%{ box-shadow: 0 0 0 6px rgba(29,78,216,0); }
+  }
+  .logo span { color: var(--green); }
+  .topbar-link { font-size: 13px; color: var(--text2); text-decoration: none; }
+  .topbar-link:hover { color: var(--blue); }
+
+  /* ── MAIN ── */
+  .main {
+    flex: 1; display: flex; align-items: flex-start; justify-content: center;
+    padding: 48px 20px;
+  }
+  .card {
+    background: var(--white); border-radius: 24px;
+    box-shadow: 0 4px 6px rgba(29,78,216,0.04), 0 20px 60px rgba(29,78,216,0.08);
+    width: 100%; max-width: 520px; overflow: hidden;
+  }
+
+  /* ── MODE TOGGLE ── */
+  .mode-tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+  }
+  .mode-tab {
+    flex: 1; padding: 16px; text-align: center; cursor: pointer;
+    font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+    color: var(--muted); border: none; background: transparent;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+    transition: all 0.2s;
+  }
+  .mode-tab.active { color: var(--blue); border-bottom-color: var(--blue); background: var(--blue-xl); }
+  .mode-tab:hover:not(.active) { background: #F8FAFF; color: var(--text2); }
+
+  /* ── HEADER ── */
+  .card-header { padding: 28px 32px 0; }
+  .card-header h1 {
+    font-family: 'Syne', sans-serif; font-size: 26px; font-weight: 800;
+    color: var(--text); margin-bottom: 6px;
+  }
+  .card-header p { font-size: 14px; color: var(--text2); }
+
+  /* ── ROLE PICKER ── */
+  .role-section { padding: 20px 32px 0; }
+  .role-label {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px;
+    font-family: 'Space Mono', monospace;
+  }
+  .role-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .role-card {
+    border: 2px solid var(--border); border-radius: 14px; padding: 14px 16px;
+    cursor: pointer; transition: all 0.18s; background: #FAFBFF;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .role-card:hover { border-color: #93C5FD; background: var(--blue-xl); }
+  .role-card.selected { border-color: var(--blue); background: var(--blue-xl); }
+  .role-card.selected .role-name { color: var(--blue); }
+  .role-icon {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center; font-size: 20px;
+  }
+  .rc-donor    .role-icon { background: #DBEAFE; }
+  .rc-receiver .role-icon { background: var(--green-lt); }
+  .rc-hospital .role-icon { background: var(--blue-xl); }
+  .rc-bloodbank .role-icon { background: var(--purple-lt); }
+  .role-name { font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700; color: var(--text); }
+  .role-desc { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.4; }
+
+  /* ── FORM ── */
+  .form-section { padding: 20px 32px 28px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .form-group { margin-bottom: 14px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label {
+    display: block; font-size: 11px; font-weight: 700; color: var(--text2);
+    text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 6px;
+    font-family: 'Space Mono', monospace;
+  }
+  .form-input, .form-select {
+    width: 100%; padding: 11px 14px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text);
+    background: #FAFBFF; outline: none; transition: border-color 0.18s;
+  }
+  .form-input:focus, .form-select:focus { border-color: var(--blue); background: var(--white); }
+  .form-select { appearance: none; cursor: pointer; }
+  .form-input::placeholder { color: var(--muted); }
+
+  .section-divider {
+    font-size: 11px; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 1px;
+    font-family: 'Space Mono', monospace;
+    padding: 14px 0 10px; border-top: 1px solid var(--border);
+    margin-top: 6px; display: flex; align-items: center; gap: 8px;
+  }
+  .section-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+
+  /* Checkbox row */
+  .check-row { display: flex; gap: 16px; flex-wrap: wrap; }
+  .check-item { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .check-item input { width: 16px; height: 16px; accent-color: var(--blue); cursor: pointer; }
+  .check-item span { font-size: 13px; color: var(--text2); }
+
+  /* ── SUBMIT ── */
+  .submit-btn {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--blue), var(--blue-dk));
+    color: var(--white); border: none; border-radius: 12px;
+    font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 800;
+    cursor: pointer; transition: all 0.2s; letter-spacing: 0.3px;
+    margin-top: 8px;
+  }
+  .submit-btn:hover { transform: scale(1.01); filter: brightness(1.08); }
+  .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  .submit-btn.green { background: linear-gradient(135deg, var(--blue), var(--blue-dk)); }
+  .submit-btn.purple { background: linear-gradient(135deg, var(--blue-lt), var(--blue)); }
+  .submit-btn.amber { background: linear-gradient(135deg, #60A5FA, var(--blue)); }
+
+  .error-msg {
+    background: var(--red-lt); border: 1px solid #FECACA; color: #B91C1C;
+    border-radius: 10px; padding: 10px 14px; font-size: 13px; margin-bottom: 14px;
+    display: none;
+  }
+  .error-msg.show { display: block; }
+
+  .success-msg {
+    background: var(--blue-xl); border: 1px solid #BFDBFE; color: var(--blue-dk);
+    border-radius: 10px; padding: 12px 14px; font-size: 13px; margin-bottom: 14px;
+    display: none; text-align: center;
+  }
+  .success-msg.show { display: block; }
+
+  /* ── ROLE BADGE on login ── */
+  .role-badge-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 16px 32px 0; }
+  .role-badge {
+    padding: 6px 14px; border-radius: 100px; font-size: 12px; font-weight: 700;
+    cursor: pointer; border: 2px solid transparent; transition: all 0.15s;
+    font-family: 'Syne', sans-serif;
+  }
+  .rb-donor    { background: #DBEAFE; color: var(--blue); }
+  .rb-receiver { background: var(--green-lt); color: var(--blue-dk); }
+  .rb-hospital { background: var(--blue-xl); color: var(--blue); }
+  .rb-bloodbank { background: var(--purple-lt); color: var(--blue-dk); }
+  .role-badge.active { border-color: currentColor; transform: scale(1.05); }
+
+  /* ── BOTTOM ── */
+  .card-footer {
+    padding: 0 32px 24px; text-align: center;
+    font-size: 13px; color: var(--text2);
+  }
+  .card-footer a { color: var(--blue); font-weight: 600; cursor: pointer; text-decoration: none; }
+  .card-footer a:hover { text-decoration: underline; }
+
+  /* ── ROLE INFO BANNER ── */
+  .role-info {
+    margin: 0 32px 16px; padding: 12px 16px; border-radius: 12px;
+    font-size: 12px; line-height: 1.6; display: none;
+  }
+  .role-info.show { display: block; }
+  .ri-donor    { background: #EFF6FF; border: 1px solid #BFDBFE; color: var(--blue-dk); }
+  .ri-receiver { background: var(--green-lt); border: 1px solid #BFDBFE; color: var(--blue-dk); }
+  .ri-hospital { background: var(--blue-xl); border: 1px solid var(--border); color: var(--blue-dk); }
+  .ri-bloodbank { background: var(--purple-lt); border: 1px solid #BFDBFE; color: var(--blue-dk); }
+
+  @media (max-width: 560px) {
+    .main { padding: 20px 12px; }
+    .card-header, .role-section, .form-section { padding-left: 20px; padding-right: 20px; }
+    .role-grid { grid-template-columns: 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .role-badge-row { margin-left: 20px; margin-right: 20px; }
+    .role-info { margin-left: 20px; margin-right: 20px; }
+    .card-footer { padding-left: 20px; padding-right: 20px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="logo" href="#">
+    <div class="logo-icon">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+      </svg>
+    </div>
+    Life<span>Link</span>
+  </a>
+  <a class="topbar-link" href="LifeLink_blue.html">← Back to App</a>
+</div>
+
+<div class="main">
+  <div class="card">
+
+    <!-- Mode Tabs -->
+    <div class="mode-tabs">
+      <button class="mode-tab active" id="tabSignin" onclick="switchMode('signin')">Sign In</button>
+      <button class="mode-tab" id="tabSignup" onclick="switchMode('signup')">Create Account</button>
+    </div>
+
+    <!-- ═══════════ SIGN IN ═══════════ -->
+    <div id="signinPanel">
+      <div class="card-header">
+        <h1 id="signinTitle">Welcome back 👋</h1>
+        <p id="signinSubtitle">Sign in to your LifeLink account</p>
+      </div>
+
+      <!-- Role selector for login -->
+      <div class="role-badge-row" id="loginRoleBadges">
+        <button class="role-badge rb-donor active" onclick="selectLoginRole('donor',this)">🩸 Donor</button>
+        <button class="role-badge rb-receiver" onclick="selectLoginRole('receiver',this)">💚 Receiver</button>
+        <button class="role-badge rb-hospital" onclick="selectLoginRole('hospital',this)">🏥 Hospital</button>
+        <button class="role-badge rb-bloodbank" onclick="selectLoginRole('bloodbank',this)">🏦 Blood Bank</button>
+      </div>
+
+      <div class="role-info ri-donor show" id="loginRoleInfo">
+        <strong>🩸 Donor Portal</strong> — Sign in to view blood requests, update availability, and track your donation impact.
+      </div>
+
+      <div class="form-section">
+        <div id="signinError" class="error-msg"></div>
+        <div id="signinSuccess" class="success-msg"></div>
+
+        <div class="form-group">
+          <label class="form-label">Email Address</label>
+          <input class="form-input" id="siEmail" type="email" placeholder="your@email.com" autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" id="siPass" type="password" placeholder="••••••••" autocomplete="current-password">
+        </div>
+
+        <button class="submit-btn" id="signinBtn" onclick="handleSignin()">Sign In →</button>
+      </div>
+
+      <div class="card-footer">
+        Don't have an account? <a onclick="switchMode('signup')">Create one free</a>
+      </div>
+    </div>
+
+    <!-- ═══════════ SIGN UP ═══════════ -->
+    <div id="signupPanel" style="display:none;">
+      <div class="card-header">
+        <h1>Join LifeLink 🩸</h1>
+        <p>Create your account — choose your role below</p>
+      </div>
+
+      <!-- Role picker -->
+      <div class="role-section">
+        <div class="role-label">I am a...</div>
+        <div class="role-grid">
+          <div class="role-card rc-donor selected" id="rc-donor" onclick="selectRole('donor')">
+            <div class="role-icon">🩸</div>
+            <div>
+              <div class="role-name">Blood Donor</div>
+              <div class="role-desc">I want to donate blood & save lives</div>
+            </div>
+          </div>
+          <div class="role-card rc-receiver" id="rc-receiver" onclick="selectRole('receiver')">
+            <div class="role-icon">💚</div>
+            <div>
+              <div class="role-name">Blood Receiver</div>
+              <div class="role-desc">I or someone I know needs blood</div>
+            </div>
+          </div>
+          <div class="role-card rc-hospital" id="rc-hospital" onclick="selectRole('hospital')">
+            <div class="role-icon">🏥</div>
+            <div>
+              <div class="role-name">Hospital</div>
+              <div class="role-desc">Register our hospital on the network</div>
+            </div>
+          </div>
+          <div class="role-card rc-bloodbank" id="rc-bloodbank" onclick="selectRole('bloodbank')">
+            <div class="role-icon">🏦</div>
+            <div>
+              <div class="role-name">Blood Bank</div>
+              <div class="role-desc">Manage blood stock & donor drives</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-section">
+        <div id="signupError" class="error-msg"></div>
+        <div id="signupSuccess" class="success-msg"></div>
+
+        <!-- ── Common fields ── -->
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Full Name *</label>
+            <input class="form-input" id="suName" type="text" placeholder="Arjun Kumar">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input class="form-input" id="suPhone" type="tel" placeholder="+91 98765 43210">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <input class="form-input" id="suEmail" type="email" placeholder="you@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password *</label>
+            <input class="form-input" id="suPass" type="password" placeholder="Min 6 characters">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">City</label>
+            <input class="form-input" id="suCity" type="text" placeholder="Chennai">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Address</label>
+            <input class="form-input" id="suAddress" type="text" placeholder="Street / Area">
+          </div>
+        </div>
+
+        <!-- ── DONOR fields ── -->
+        <div id="fields-donor">
+          <div class="section-divider">Donor Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Blood Type *</label>
+              <select class="form-select" id="suBloodType">
+                <option value="">Select type</option>
+                <option>A+</option><option>A-</option>
+                <option>B+</option><option>B-</option>
+                <option>AB+</option><option>AB-</option>
+                <option>O+</option><option>O-</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Gender</label>
+              <select class="form-select" id="suGender">
+                <option value="">Select</option>
+                <option value="male">Male</option>
+                <option value="female">Female</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Date of Birth</label>
+              <input class="form-input" id="suDob" type="date">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Weight (kg)</label>
+              <input class="form-input" id="suWeight" type="number" placeholder="e.g. 65" min="45">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Any Medical Conditions? (optional)</label>
+            <input class="form-input" id="suMedical" type="text" placeholder="Diabetes, hypertension, etc. — or leave blank">
+          </div>
+          <div class="form-group">
+            <div class="check-row">
+              <label class="check-item">
+                <input type="checkbox" id="suOrganDonor">
+                <span>Also register as an organ donor</span>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── RECEIVER fields ── -->
+        <div id="fields-receiver" style="display:none;">
+          <div class="section-divider">Receiver Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Required Blood Type *</label>
+              <select class="form-select" id="suReqBlood">
+                <option value="">Select type</option>
+                <option>A+</option><option>A-</option>
+                <option>B+</option><option>B-</option>
+                <option>AB+</option><option>AB-</option>
+                <option>O+</option><option>O-</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Urgency Level *</label>
+              <select class="form-select" id="suUrgency">
+                <option value="routine">Routine</option>
+                <option value="urgent">Urgent</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Medical Condition</label>
+              <input class="form-input" id="suMedCond" type="text" placeholder="Anaemia, surgery, etc.">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Attending Hospital</label>
+              <input class="form-input" id="suAttHosp" type="text" placeholder="St. Mary's Hospital">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Guardian Name</label>
+              <input class="form-input" id="suGuardName" type="text" placeholder="Parent / Spouse name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Guardian Phone</label>
+              <input class="form-input" id="suGuardPhone" type="tel" placeholder="+91 ...">
+            </div>
+          </div>
+        </div>
+
+        <!-- ── HOSPITAL fields ── -->
+        <div id="fields-hospital" style="display:none;">
+          <div class="section-divider">Hospital Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Hospital Name *</label>
+              <input class="form-input" id="suHospName" type="text" placeholder="Apollo Hospitals">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Govt. Registration No.</label>
+              <input class="form-input" id="suRegNo" type="text" placeholder="MH/12345/2020">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Hospital Type</label>
+              <select class="form-select" id="suHospType">
+                <option value="private">Private</option>
+                <option value="government">Government</option>
+                <option value="trust">Trust / NGO</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Total Beds</label>
+              <input class="form-input" id="suBeds" type="number" placeholder="200">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Contact Person</label>
+              <input class="form-input" id="suContact" type="text" placeholder="Dr. Priya Sharma">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Website (optional)</label>
+              <input class="form-input" id="suWebsite" type="url" placeholder="https://...">
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="check-row">
+              <label class="check-item"><input type="checkbox" id="suHasBloodBank"><span>Has Blood Bank</span></label>
+              <label class="check-item"><input type="checkbox" id="suHasOrgan"><span>Organ Facility</span></label>
+              <label class="check-item"><input type="checkbox" id="suIsTrauma"><span>Trauma Centre</span></label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── BLOOD BANK fields ── -->
+        <div id="fields-bloodbank" style="display:none;">
+          <div class="section-divider">Blood Bank Details</div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Blood Bank Name *</label>
+              <input class="form-input" id="suBankName" type="text" placeholder="City Blood Centre">
+            </div>
+            <div class="form-group">
+              <label class="form-label">License Number (NBTC)</label>
+              <input class="form-input" id="suLicense" type="text" placeholder="NBTC/TN/0012">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Bank Type</label>
+              <select class="form-select" id="suBankType">
+                <option value="private">Private</option>
+                <option value="government">Government</option>
+                <option value="charitable">Charitable / NGO</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Storage Capacity (units)</label>
+              <input class="form-input" id="suCapacity" type="number" placeholder="500">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Operating Hours</label>
+            <input class="form-input" id="suHours" type="text" placeholder="Mon–Sat 8am–8pm / 24×7">
+          </div>
+          <div class="form-group">
+            <div class="check-row">
+              <label class="check-item"><input type="checkbox" id="suAcceptDonors" checked><span>Currently accepting donors</span></label>
+            </div>
+          </div>
+        </div>
+
+        <button class="submit-btn" id="signupBtn" onclick="handleSignup()">Create Account →</button>
+      </div>
+
+      <div class="card-footer">
+        Already have an account? <a onclick="switchMode('signin')">Sign in</a>
+      </div>
+    </div>
+
+  </div><!-- /card -->
+</div><!-- /main -->
+
+<script>
+const ORIGIN = (typeof window !== 'undefined'
+  && window.location
+  && window.location.origin
+  && window.location.origin !== 'null')
+  ? window.location.origin
+  : 'http://localhost:5000';
+const API = `${ORIGIN}/api`;
+let currentRole = 'donor';
+let loginRole   = 'donor';
+
+const roleColors = {
+  donor:     '#1D4ED8',
+  receiver:  '#2563EB',
+  hospital:  '#1E3A8A',
+  bloodbank: '#3B82F6',
+};
+const roleLabels = {
+  donor: '🩸 Donor', receiver: '💚 Receiver', hospital: '🏥 Hospital', bloodbank: '🏦 Blood Bank'
+};
+const roleInfos = {
+  donor:     '<strong>🩸 Donor Portal</strong> — Sign in to view blood requests, update availability, and track your donation impact.',
+  receiver:  '<strong>💚 Receiver Portal</strong> — Find blood donors near you, post urgent requests, and coordinate with hospitals.',
+  hospital:  '<strong>🏥 Hospital Portal</strong> — Manage blood requests, update bed availability, and coordinate organ transfers.',
+  bloodbank: '<strong>🏦 Blood Bank Portal</strong> — Manage your blood stock, post alerts, and run donor drives.',
+};
+
+function switchMode(mode) {
+  document.getElementById('signinPanel').style.display = mode === 'signin' ? 'block' : 'none';
+  document.getElementById('signupPanel').style.display = mode === 'signup' ? 'block' : 'none';
+  document.getElementById('tabSignin').classList.toggle('active', mode === 'signin');
+  document.getElementById('tabSignup').classList.toggle('active', mode === 'signup');
+}
+
+function selectRole(role) {
+  currentRole = role;
+  ['donor','receiver','hospital','bloodbank'].forEach(r => {
+    document.getElementById('rc-' + r)?.classList.toggle('selected', r === role);
+    document.getElementById('fields-' + r).style.display = r === role ? 'block' : 'none';
+  });
+  const btn = document.getElementById('signupBtn');
+  const colors = { donor:'', receiver:' green', hospital:'', bloodbank:' purple' };
+  btn.className = 'submit-btn' + colors[role];
+}
+
+function selectLoginRole(role, btn) {
+  loginRole = role;
+  document.querySelectorAll('.role-badge').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const info = document.getElementById('loginRoleInfo');
+  info.className = `role-info ri-${role} show`;
+  info.innerHTML = roleInfos[role];
+  document.getElementById('signinTitle').textContent =
+    role === 'donor' ? 'Welcome back 👋' :
+    role === 'receiver' ? 'Find blood donors 💚' :
+    role === 'hospital' ? 'Hospital portal 🏥' : 'Blood bank portal 🏦';
+}
+
+async function handleSignin() {
+  const btn   = document.getElementById('signinBtn');
+  const errEl = document.getElementById('signinError');
+  const sucEl = document.getElementById('signinSuccess');
+  errEl.classList.remove('show'); sucEl.classList.remove('show');
+
+  const email    = document.getElementById('siEmail').value.trim();
+  const password = document.getElementById('siPass').value;
+  if (!email || !password) return showErr(errEl, 'Please fill in all fields');
+
+  btn.disabled = true; btn.textContent = 'Signing in...';
+  try {
+    const res  = await fetch(`${API}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.message || 'Login failed');
+
+    localStorage.setItem('ll_token', data.token);
+    localStorage.setItem('ll_user',  JSON.stringify(data.user));
+
+    sucEl.textContent = `✅ Welcome back, ${data.user.name}! Redirecting...`;
+    sucEl.classList.add('show');
+    setTimeout(() => { window.location.href = 'LifeLink_blue.html'; }, 1200);
+  } catch (err) {
+    showErr(errEl, err.message);
+    btn.disabled = false; btn.textContent = 'Sign In →';
+  }
+}
+
+async function handleSignup() {
+  const btn   = document.getElementById('signupBtn');
+  const errEl = document.getElementById('signupError');
+  const sucEl = document.getElementById('signupSuccess');
+  errEl.classList.remove('show'); sucEl.classList.remove('show');
+
+  const body = {
+    role:    currentRole,
+    name:    document.getElementById('suName').value.trim(),
+    email:   document.getElementById('suEmail').value.trim(),
+    password:document.getElementById('suPass').value,
+    phone:   document.getElementById('suPhone').value.trim(),
+    city:    document.getElementById('suCity').value.trim(),
+    address: document.getElementById('suAddress').value.trim(),
+  };
+
+  if (!body.name || !body.email || !body.password)
+    return showErr(errEl, 'Name, email and password are required');
+  if (body.password.length < 6)
+    return showErr(errEl, 'Password must be at least 6 characters');
+
+  // Role-specific
+  if (currentRole === 'donor') {
+    body.bloodType = document.getElementById('suBloodType').value;
+    body.gender    = document.getElementById('suGender').value;
+    body.dateOfBirth = document.getElementById('suDob').value;
+    body.weight    = document.getElementById('suWeight').value;
+    body.medicalConditions = document.getElementById('suMedical').value;
+    body.organDonor = document.getElementById('suOrganDonor').checked;
+    if (!body.bloodType) return showErr(errEl, 'Please select your blood type');
+  }
+  if (currentRole === 'receiver') {
+    body.requiredBloodType = document.getElementById('suReqBlood').value;
+    body.urgency           = document.getElementById('suUrgency').value;
+    body.medicalCondition  = document.getElementById('suMedCond').value;
+    body.attendingHospital = document.getElementById('suAttHosp').value;
+    body.guardianName      = document.getElementById('suGuardName').value;
+    body.guardianPhone     = document.getElementById('suGuardPhone').value;
+    if (!body.requiredBloodType) return showErr(errEl, 'Please select the required blood type');
+  }
+  if (currentRole === 'hospital') {
+    body.hospitalName       = document.getElementById('suHospName').value;
+    body.registrationNumber = document.getElementById('suRegNo').value;
+    body.hospitalType       = document.getElementById('suHospType').value;
+    body.bedCount           = document.getElementById('suBeds').value;
+    body.contactPerson      = document.getElementById('suContact').value;
+    body.website            = document.getElementById('suWebsite').value;
+    body.hasBloodBank       = document.getElementById('suHasBloodBank').checked;
+    body.hasOrganFacility   = document.getElementById('suHasOrgan').checked;
+    body.isTraumaCentre     = document.getElementById('suIsTrauma').checked;
+    if (!body.hospitalName) return showErr(errEl, 'Hospital name is required');
+  }
+  if (currentRole === 'bloodbank') {
+    body.bankName        = document.getElementById('suBankName').value;
+    body.licenseNumber   = document.getElementById('suLicense').value;
+    body.bankType        = document.getElementById('suBankType').value;
+    body.storageCapacity = document.getElementById('suCapacity').value;
+    body.operatingHours  = document.getElementById('suHours').value;
+    body.acceptingDonors = document.getElementById('suAcceptDonors').checked;
+    if (!body.bankName) return showErr(errEl, 'Blood bank name is required');
+  }
+
+  btn.disabled = true; btn.textContent = 'Creating account...';
+  try {
+    const res  = await fetch(`${API}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      const msg = data.errors ? data.errors.map(e => e.msg).join(', ') : data.message;
+      throw new Error(msg);
+    }
+
+    localStorage.setItem('ll_token', data.token);
+    localStorage.setItem('ll_user',  JSON.stringify(data.user));
+
+    sucEl.innerHTML = `🎉 Account created! Welcome, <strong>${data.user.name}</strong>. Redirecting to LifeLink...`;
+    sucEl.classList.add('show');
+    setTimeout(() => { window.location.href = 'LifeLink_blue.html'; }, 1400);
+  } catch (err) {
+    showErr(errEl, err.message);
+    btn.disabled = false;
+    btn.textContent = 'Create Account →';
+  }
+}
+
+function showErr(el, msg) {
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+}
+
+// Check if already logged in
+const existing = localStorage.getItem('ll_user');
+if (existing) {
+  const u = JSON.parse(existing);
+  const banner = document.createElement('div');
+  banner.style.cssText = 'background:#EFF6FF;border:1px solid #BFDBFE;border-radius:10px;padding:10px 16px;font-size:13px;color:#1D4ED8;margin:0 32px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;';
+  banner.innerHTML = `<span>Signed in as <strong>${u.name}</strong> (${u.role})</span><a href="LifeLink_blue.html" style="color:#1D4ED8;font-weight:700;text-decoration:none;">Go to App →</a>`;
+  document.querySelector('#signinPanel .form-section').prepend(banner);
+}
+</script>
+</body>
+</html>
