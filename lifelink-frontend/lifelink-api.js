@@ -10,10 +10,26 @@ const ORIGIN = (typeof window !== 'undefined'
   ? window.location.origin
   : 'http://localhost:5000';
 const API_BASE = `${ORIGIN}/api`;
+const DONOR_CACHE_KEY = 'll_cached_donors_v1';
+const SHORTAGE_CACHE_KEY = 'll_shortage_cache_v1';
 const DEV_SEED_KEY = 'll_dev_seeded_v1';
 let _token = localStorage.getItem('ll_token') || null;
 let _user  = JSON.parse(localStorage.getItem('ll_user') || 'null');
 let _socket = null;
+
+const isOfflineMode = () => {
+  if (typeof window !== 'undefined' && window.isOffline === true) return true;
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return true;
+  return false;
+};
+
+const daysSince = (date) => {
+  if (!date) return null;
+  const last = new Date(date);
+  if (Number.isNaN(last.getTime())) return null;
+  const diff = Date.now() - last.getTime();
+  return Math.floor(diff / (1000 * 60 * 60 * 24));
+};
 
 // ── Helpers ──────────────────────────────────────────────
 const apiCall = async (method, path, body = null) => {
@@ -63,15 +79,52 @@ const LL = {
     LL.updateUI();
   },
 
+  // Update donor availability status (available | busy | offline)
+  async updateStatus(status) {
+    if (!_token) return;
+    try {
+      const { user } = await apiCall('PUT', '/auth/status', { status });
+      _user = user;
+      localStorage.setItem('ll_user', JSON.stringify(_user));
+      LL.updateUI();
+      showNotif('Status Updated', `You are now ${status}.`);
+    } catch (err) {
+      console.warn('Status update failed:', err.message);
+      showNotif('Status Update Failed', err.message);
+    }
+  },
+
   // Update user info displayed in nav
   updateUI() {
     const nameEl = document.querySelector('.sidenav-user-name');
     const subEl  = document.querySelector('.sidenav-user-sub');
     const chipEl = document.querySelector('.nav-user-chip');
+    const navRight = document.querySelector('.nav-right');
     if (_user) {
       if (nameEl) nameEl.textContent = _user.name;
-      if (subEl)  subEl.textContent  = `${_user.bloodType} · ★${_user.trustScore} · ${_user.donations} donations`;
+      const statusLabel = (_user.status || (_user.isAvailable ? 'available' : 'offline')).toUpperCase();
+      if (subEl)  subEl.textContent  = `${_user.bloodType} · ★${_user.trustScore} · ${_user.donations} donations · ${statusLabel}`;
       if (chipEl) chipEl.childNodes[2].textContent = ` ${_user.name} · ${_user.bloodType} · ★${_user.trustScore}`;
+
+      if (navRight) {
+        let statusSelect = document.getElementById('llStatusSelect');
+        if (!statusSelect) {
+          statusSelect = document.createElement('select');
+          statusSelect.id = 'llStatusSelect';
+          statusSelect.style.cssText = 'padding:6px 10px;border:1px solid #DBEAFE;border-radius:8px;font-size:12px;font-weight:700;color:#1D4ED8;background:#EFF6FF;font-family:\'DM Sans\',sans-serif;cursor:pointer;';
+          statusSelect.innerHTML = `
+            <option value="available">Available</option>
+            <option value="busy">Busy</option>
+            <option value="offline">Offline</option>
+          `;
+          statusSelect.onchange = () => LL.updateStatus(statusSelect.value);
+          navRight.insertBefore(statusSelect, navRight.firstChild);
+        }
+        statusSelect.value = _user.status || (_user.isAvailable ? 'available' : 'offline');
+      }
+    } else {
+      const statusSelect = document.getElementById('llStatusSelect');
+      if (statusSelect) statusSelect.remove();
     }
   },
 
@@ -161,6 +214,114 @@ const LL = {
     }
   },
 
+  // ── Donor Matching ─────────────────────────────────────
+  async matchDonors({ bloodType, lat, lng, isEmergency = false, radius = null }) {
+    const payload = { bloodType, lat, lng, isEmergency };
+    if (radius) payload.radius = radius;
+
+    if (isOfflineMode()) {
+      const cached = JSON.parse(localStorage.getItem(DONOR_CACHE_KEY) || 'null');
+      if (cached?.donors) return { ...cached, offline: true };
+      return { donors: [], count: 0, expanded: false, message: 'Offline: no cached donors', offline: true };
+    }
+
+    try {
+      const res = await fetch(`${ORIGIN}/match-donors`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Match error');
+      localStorage.setItem(DONOR_CACHE_KEY, JSON.stringify({ ...data, cachedAt: new Date().toISOString() }));
+      return data;
+    } catch (err) {
+      const cached = JSON.parse(localStorage.getItem(DONOR_CACHE_KEY) || 'null');
+      if (cached?.donors) return { ...cached, offline: true, message: 'Offline: showing cached donors' };
+      throw err;
+    }
+  },
+
+  async loadEligibleDonors(alertId, bloodType, lat, lng, isEmergency = false) {
+    try {
+      const url = `/alerts/nearby-donors?lat=${lat}&lng=${lng}&bloodType=${bloodType}&isEmergency=${isEmergency}`;
+      const { donors } = await apiCall('GET', url);
+      localStorage.setItem(DONOR_CACHE_KEY, JSON.stringify({ donors, cachedAt: new Date().toISOString() }));
+      return donors;
+    } catch (err) {
+      console.warn('Could not load eligible donors:', err.message);
+      const cached = JSON.parse(localStorage.getItem(DONOR_CACHE_KEY) || 'null');
+      return cached?.donors || [];
+    }
+  },
+
+  renderEligibleDonors(donors, { highlightTop = true } = {}) {
+    if (!donors?.length) return '<p class="donor-empty">No eligible donors found nearby.</p>';
+
+    return donors.map((donor, idx) => {
+      const eligibility = donor?.eligibility?.eligibility || 'UNKNOWN';
+      const colorClass = eligibility === 'ELIGIBLE'
+        ? 'donor-green'
+        : eligibility === 'EMERGENCY_ELIGIBLE'
+          ? 'donor-yellow'
+          : 'donor-red';
+      const lastDays = donor.daysSinceLastDonation ?? daysSince(donor.lastDonation || donor.lastDonationDate);
+      const scorePct = Math.min(1, Math.max(0, donor.score || 0));
+      const status = donor.status || (donor.isAvailable ? 'available' : 'offline');
+      const daysLabel = lastDays === null ? 'N/A' : `${lastDays} days`;
+      const daysRemaining = donor?.eligibility?.daysRemaining;
+      const availabilityNote = daysRemaining !== null && daysRemaining !== undefined
+        ? `Available in ${daysRemaining} days`
+        : (eligibility === 'NOT_ELIGIBLE' ? 'Not eligible' : 'Available now');
+
+      return `
+        <div class="donor-card ${colorClass} ${highlightTop && idx === 0 ? 'top-donor' : ''}">
+          <div class="donor-card-head">
+            <div class="donor-blood">Blood: ${donor.bloodType || '-'}</div>
+            <div class="donor-score">Score: ${(scorePct * 100).toFixed(0)}%</div>
+          </div>
+          <div class="donor-meta">
+            <span>Status: ${eligibility}</span>
+            <span>Last donation: ${daysLabel}</span>
+            <span>Distance: ${(donor.distance || 0).toFixed(1)} km</span>
+            <span>Donor status: ${status}</span>
+          </div>
+          <div class="donor-sub">${availabilityNote}</div>
+        </div>
+      `;
+    }).join('');
+  },
+
+  async loadShortageIndicator(bloodType, lat, lng) {
+    if (!bloodType) return;
+    const banner = document.getElementById('shortageBanner');
+    if (!banner) return;
+
+    if (isOfflineMode()) {
+      const cached = JSON.parse(localStorage.getItem(SHORTAGE_CACHE_KEY) || 'null');
+      if (cached?.message) {
+        banner.textContent = cached.message;
+        banner.style.display = 'block';
+      }
+      return;
+    }
+
+    try {
+      const params = new URLSearchParams({ bloodType });
+      if (lat && lng) { params.set('lat', lat); params.set('lng', lng); }
+      const res = await fetch(`${API_BASE}/insights/shortage?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Shortage check failed');
+      localStorage.setItem(SHORTAGE_CACHE_KEY, JSON.stringify({ ...data, cachedAt: new Date().toISOString() }));
+      banner.textContent = data.message;
+      banner.classList.toggle('shortage', data.shortage === true);
+      banner.classList.toggle('stable', data.shortage === false);
+      banner.style.display = 'block';
+    } catch (err) {
+      console.warn('Shortage check failed:', err.message);
+    }
+  },
+
   // ── Hospitals ──────────────────────────────────────────
   async loadNearbyHospitals() {
     try {
@@ -199,6 +360,12 @@ const LL = {
       LL.loadAlerts(); // Refresh the alert list
     });
 
+    // Emergency broadcast
+    _socket.on('emergency_alert', (payload) => {
+      const msg = payload?.message || `Emergency request for ${payload?.bloodType || 'blood'} in your area.`;
+      showNotif('🚨 Emergency Broadcast', msg);
+    });
+
     // Alert status changed
     _socket.on('alert_updated', ({ id, status }) => {
       LL.loadAlerts();
@@ -213,6 +380,14 @@ const LL = {
     // Another donor moved nearby
     _socket.on('donor_moved', ({ userId, lat, lng }) => {
       console.log(`👤 Donor ${userId} at ${lat}, ${lng}`);
+    });
+
+    _socket.on('donor_status_changed', ({ userId, status }) => {
+      if (_user?.id === userId) {
+        _user.status = status;
+        localStorage.setItem('ll_user', JSON.stringify(_user));
+        LL.updateUI();
+      }
     });
 
     _socket.on('disconnect', () => console.log('❌ Disconnected from real-time server'));
@@ -233,6 +408,7 @@ const LL = {
     // Load real data in background
     LL.loadAlerts();
     LL.loadNearbyHospitals();
+    if (_user?.bloodType) LL.loadShortageIndicator(_user.bloodType);
 
     // Share live GPS location if logged in
     if (_token) LL.shareLocation();

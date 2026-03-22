@@ -46,16 +46,52 @@ router.get('/', protect, async (req, res) => {
 // Hospital or admin creates a new blood request alert
 router.post('/', protect, async (req, res) => {
   try {
-    const { type, severity, title, message, bloodType, unitsNeeded, hospital } = req.body;
+    const { type, severity, title, message, bloodType, unitsNeeded, hospital, location } = req.body;
+
+    let alertHospital = hospital;
+
+    // For SOS alerts, find nearest hospital if not provided
+    if (type === 'emergency_sos' && !hospital && location) {
+      const Hospital = require('../models/Hospital');
+      const nearest = await Hospital.findOne({
+        location: {
+          $near: {
+            $geometry: { type: 'Point', coordinates: [location.lng, location.lat] },
+            $maxDistance: 20000, // 20km
+          },
+        },
+        hasBloodBank: true,
+        isOpen: true,
+      });
+      if (nearest) {
+        alertHospital = {
+          name: nearest.name,
+          address: nearest.address,
+          location: {
+            type: 'Point',
+            coordinates: nearest.location.coordinates,
+          },
+        };
+      }
+    }
 
     const alert = await Alert.create({
       type, severity, title, message, bloodType, unitsNeeded,
-      hospital, requestedBy: req.user._id,
+      hospital: alertHospital, requestedBy: req.user._id,
     });
 
     // Emit to all connected clients via Socket.IO
     const io = req.app.get('io');
-    if (io) io.emit('new_alert', alert);
+    if (io) {
+      io.emit('new_alert', alert);
+      if (type === 'emergency_sos' || severity === 'critical') {
+        io.emit('emergency_alert', {
+          bloodType,
+          location: alertHospital?.location || location || null,
+          message: message || title || 'Emergency blood request',
+        });
+      }
+    }
 
     res.status(201).json({ alert });
   } catch (err) {
@@ -114,12 +150,11 @@ router.put('/:id/fulfill', protect, async (req, res) => {
 // Find verified donors near a hospital for a specific blood type
 router.get('/nearby-donors', protect, async (req, res) => {
   try {
-    const { lat, lng, bloodType, radius = 10000 } = req.query;
+    const { lat, lng, bloodType, radius = 10000, isEmergency = false } = req.query;
+    const isEmergencyBool = isEmergency === 'true' || isEmergency === true;
 
     const donors = await User.find({
       role: 'donor',
-      isAvailable: true,
-      bloodType: { $in: [bloodType, 'O-'] },
       location: {
         $near: {
           $geometry: { type: 'Point', coordinates: [parseFloat(lng), parseFloat(lat)] },
@@ -127,13 +162,41 @@ router.get('/nearby-donors', protect, async (req, res) => {
         },
       },
     })
-      .select('name bloodType trustScore donations location isAvailable verifiedBadge')
-      .limit(10);
+      .select('name bloodType trustScore donations location isAvailable status verifiedBadge lastDonation diseases hemoglobin healthScore')
+      .limit(100); // Get more for ranking
 
-    res.json({ donors, count: donors.length });
+    // Calculate distance for each donor
+    const donorsWithDistance = donors.map(donor => {
+      const donorLng = donor.location.coordinates[0];
+      const donorLat = donor.location.coordinates[1];
+      const distance = getDistance(parseFloat(lat), parseFloat(lng), donorLat, donorLng);
+      return { ...donor.toObject(), distance };
+    });
+
+    const DonorEligibility = require('../utils/donorEligibility');
+    const request = {
+      bloodType,
+      location: { lat: parseFloat(lat), lng: parseFloat(lng) },
+      isEmergency: isEmergencyBool,
+    };
+
+    const rankedDonors = DonorEligibility.filterAndRankDonors(donorsWithDistance, request);
+    res.json({ donors: rankedDonors, count: rankedDonors.length });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+
+// Helper function to calculate distance between two points (Haversine formula)
+function getDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371; // Radius of the Earth in km
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) * Math.sin(dLng / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
 
 module.exports = router;

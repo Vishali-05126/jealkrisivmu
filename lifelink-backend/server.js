@@ -26,6 +26,8 @@ app.set('io', io);
 app.use('/api/auth',      require('./routes/auth'));
 app.use('/api/alerts',    require('./routes/alerts'));
 app.use('/api/hospitals', require('./routes/hospitals'));
+app.use('/api/insights',  require('./routes/insights'));
+app.use('/',              require('./routes/match'));
 
 // Serve frontend
 const FRONTEND_DIR = path.join(__dirname, '..', 'lifelink-frontend');

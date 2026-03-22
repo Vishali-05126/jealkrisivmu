@@ -1454,6 +1454,20 @@
   .triage-dispatch-btn:hover { transform:scale(1.02); filter:brightness(1.1); }
   .triage-dispatch-btn:disabled { animation:none; opacity:0.5; cursor:not-allowed; transform:none; }
   .triage-results { background:#ffffff; border:1px solid #DBEAFE; border-radius:20px; overflow:hidden; }
+  .shortage-banner { margin:12px 14px; padding:10px 12px; border-radius:12px; font-size:12px; font-weight:700; display:none; }
+  .shortage-banner.shortage { background:rgba(239,68,68,0.1); color:#B91C1C; border:1px solid rgba(239,68,68,0.25); }
+  .shortage-banner.stable { background:rgba(34,197,94,0.08); color:#166534; border:1px solid rgba(34,197,94,0.25); }
+  .donor-card { margin:12px 14px; padding:14px 16px; border-radius:14px; border-left:6px solid transparent; background:#F8FAFF; box-shadow:0 6px 16px rgba(15,23,42,0.04); }
+  .donor-card.top-donor { box-shadow:0 12px 24px rgba(34,197,94,0.18); }
+  .donor-green { border-left-color:#22C55E; background:rgba(34,197,94,0.08); }
+  .donor-yellow { border-left-color:#F59E0B; background:rgba(245,158,11,0.1); }
+  .donor-red { border-left-color:#EF4444; background:rgba(239,68,68,0.08); }
+  .donor-card-head { display:flex; justify-content:space-between; font-weight:800; font-size:13px; margin-bottom:8px; }
+  .donor-meta { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; font-size:12px; color:#475569; }
+  .donor-sub { margin-top:6px; font-size:11px; color:#6B7280; }
+  .donor-empty { padding:16px; text-align:center; color:#6B7280; font-size:13px; }
+  .triage-toggle { display:flex; align-items:center; gap:10px; font-size:12px; color:#475569; }
+  .triage-toggle input { accent-color:var(--blood-lt); }
   .triage-match-card {
     padding:18px 20px; border-bottom:1px solid rgba(255,255,255,0.05);
     display:flex; align-items:center; gap:14px; transition:background 0.15s; cursor:pointer;
@@ -2590,9 +2604,10 @@
   }
 
   // ── Offline toggle ────────────────────────────────────────────────────
-  let isOffline = false;
+  window.isOffline = window.isOffline || false;
   function toggleOffline() {
-    isOffline = !isOffline;
+    window.isOffline = !window.isOffline;
+    const isOffline = window.isOffline;
     const toast = document.getElementById('offlineToast');
     const btn = document.getElementById('offlineBtn');
     if (isOffline) {
@@ -3129,33 +3144,30 @@ Always return complete JSON. If not a genetic report, generate a plausible profi
     const hospital = document.getElementById('triageHospital').value;
     const type = document.getElementById('triageType').value;
     const notes = document.getElementById('triageNotes').value;
+    const isEmergency = document.getElementById('triageEmergency')?.checked === true;
     if (!bloodType) { showNotif('⚠️ Missing Info', 'Please select a blood type before dispatching.'); return; }
     const btn = document.getElementById('triageDispatchBtn');
     btn.disabled = true; btn.textContent = '⏳ Dispatching...';
     document.getElementById('triageIdle').style.display = 'none';
     document.getElementById('triageMatchList').style.display = 'none';
     document.getElementById('triageScanning').style.display = 'block';
-    const msgs = ['Scanning donor network...','Filtering by blood type...','Calculating distances & ETAs...','Scoring trust & availability...','Ranking optimal dispatch order...'];
+    const msgs = ['Scanning donor network...','Filtering by blood type...','Calculating distances...','Scoring trust & health...','Ranking optimal donors...'];
     let si = 0;
     const sint = setInterval(() => { if (si < msgs.length) document.getElementById('triageScanLabel').textContent = msgs[si++]; else clearInterval(sint); }, 600);
-    const prompt = `You are the AI dispatcher for LifeLink emergency blood network.
-Emergency: ${units} units of ${bloodType} needed at ${hospital}. Type: ${type}. Notes: ${notes||'None'}.
-Generate 5 ranked donor matches. Respond ONLY with valid JSON:
-{
-  "dispatch_summary": "one sentence about this emergency",
-  "total_donors_scanned": number,
-  "matches": [
-    {"rank":1,"name":"First name + initial","blood_type":"${bloodType}","distance_km":number,"eta_minutes":number,"trust_score":"4.x","donations":number,"last_donation":"e.g. 2 months ago","availability":"Available Now|On Standby|Driving Distance","match_score":85-99,"special_flags":"e.g. CMV-negative, verified badge"}
-  ],
-  "recommendation": "which donor to dispatch first and why"
-}`;
+
+    const coords = await new Promise(resolve => {
+      if (!navigator.geolocation) return resolve({ lat: 13.0827, lng: 80.2707 });
+      navigator.geolocation.getCurrentPosition(
+        pos => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
+        () => resolve({ lat: 13.0827, lng: 80.2707 }),
+        { enableHighAccuracy: true, timeout: 4000 }
+      );
+    });
+
     try {
-      const res = await fetch('https://api.anthropic.com/v1/messages', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ model:'claude-sonnet-4-20250514', max_tokens:1000, messages:[{ role:'user', content:prompt }] }) });
+      const result = await LL.matchDonors({ bloodType, lat: coords.lat, lng: coords.lng, isEmergency });
       clearInterval(sint);
-      const data = await res.json();
-      const raw = data.content.map(b=>b.text||'').join('').trim();
-      const result = JSON.parse((raw.match(/\{[\s\S]*\}/)||[raw])[0]);
-      renderTriageResults(result, hospital);
+      renderTriageResults(result, hospital, { bloodType, units, type, notes, coords, isEmergency });
     } catch(err) {
       clearInterval(sint);
       document.getElementById('triageScanning').style.display = 'none';
@@ -3165,34 +3177,27 @@ Generate 5 ranked donor matches. Respond ONLY with valid JSON:
     btn.disabled = false; btn.textContent = '🚨 DISPATCH AI TRIAGE';
   }
 
-  function renderTriageResults(r, hospital) {
+  function renderTriageResults(result, hospital, meta) {
     document.getElementById('triageScanning').style.display = 'none';
     const list = document.getElementById('triageMatchList');
     list.style.display = 'block';
-    const rankClasses = ['rank-best','rank-good','rank-ok','rank-ok','rank-ok'];
-    const rankLabels = ['BEST','#2','#3','#4','#5'];
-    list.innerHTML = `
-      <div class="panel-header"><div class="panel-title">🎯 ${r.total_donors_scanned||247} Donors Scanned</div><span class="panel-badge badge-live">LIVE</span></div>
-      <div style="padding:14px 20px;background:rgba(34,197,94,0.07);border-bottom:1px solid rgba(34,197,94,0.15);font-size:13px;color:#475569;"><strong style="color:var(--green);">✅ AI Recommendation:</strong> ${r.recommendation||''}</div>
-      ${(r.matches||[]).map((m,i)=>`
-        <div class="triage-match-card">
-          <div class="triage-match-rank ${rankClasses[i]||'rank-ok'}">${rankLabels[i]||i+1}</div>
-          <div class="triage-match-info">
-            <div class="tmi-name">${m.name} <span style="font-size:11px;background:rgba(255,255,255,0.08);padding:2px 8px;border-radius:6px;font-weight:400;color:#475569;">${m.blood_type}</span></div>
-            <div class="tmi-meta">
-              <span>📍 ${m.distance_km}km</span><span>⭐ ${m.trust_score}</span><span>🩸 ${m.donations} donations</span>
-              <span style="color:${m.availability==='Available Now'?'var(--green)':'var(--gold)'};">● ${m.availability}</span>
-              ${m.special_flags?`<span style="color:var(--teal);">✓ ${m.special_flags}</span>`:''}
-            </div>
-            <div style="margin-top:6px;display:flex;align-items:center;gap:6px;"><div style="flex:1;height:4px;background:#EFF6FF;border-radius:100px;overflow:hidden;"><div style="height:100%;width:${m.match_score}%;background:${i===0?'var(--green)':i===1?'var(--teal)':'var(--gold)'};border-radius:100px;"></div></div><span style="font-size:10px;font-family:var(--font-mono);color:#6B7280;">${m.match_score}% match</span></div>
-          </div>
-          <div class="triage-eta-badge">
-            <div class="triage-eta-num">${m.eta_minutes}m</div>
-            <div class="triage-eta-lbl">ETA</div>
-            <button class="triage-dispatch-single" onclick="showNotif('🚑 Dispatched!','${m.name} notified. ETA to ${hospital}: ${m.eta_minutes} min.')">Dispatch</button>
-          </div>
-        </div>`).join('')}`;
-    showNotif('🚑 Triage Complete', `${r.matches?.length||5} donors ranked. Top match ready. ETA: ${r.matches?.[0]?.eta_minutes||'?'} min.`);
+
+    const expansionMsg = result.expanded
+      ? `<div class="shortage-banner shortage" style="display:block;">${result.message || 'No eligible donors found. Expanding search...'}</div>`
+      : '';
+
+    const donorHtml = LL.renderEligibleDonors(result.donors || [], { highlightTop: true });
+    list.innerHTML = `${expansionMsg}${donorHtml}`;
+
+    if (meta?.bloodType) {
+      LL.loadShortageIndicator(meta.bloodType, meta.coords?.lat, meta.coords?.lng);
+    }
+
+    if ((result.donors || []).length) {
+      showNotif('🚑 Triage Complete', `${result.donors.length} donors ranked. Top match ready.`);
+    } else {
+      showNotif('⚠️ No Donors', 'No eligible donors found nearby.');
+    }
   }
 
   // ── NOTIFICATION CENTER ───────────────────────────────────────────────
@@ -3797,6 +3802,13 @@ Always be clear, compassionate, and medically accurate. Keep responses concise (
           </select>
         </div>
         <div class="triage-form-group">
+          <div class="triage-label">Emergency Mode</div>
+          <label class="triage-toggle">
+            <input type="checkbox" id="triageEmergency">
+            <span>Enable 30-day emergency override</span>
+          </label>
+        </div>
+        <div class="triage-form-group">
           <div class="triage-label">Additional Notes (Optional)</div>
           <input class="triage-input" id="triageNotes" placeholder="e.g. Patient is 34F, critical, needs CMV-negative">
         </div>
@@ -3813,6 +3825,7 @@ Always be clear, compassionate, and medically accurate. Keep responses concise (
           <div style="font-family:var(--font-head);font-size:18px;font-weight:700;color:var(--blood-lt);margin-bottom:8px;" id="triageScanLabel">Scanning donor network...</div>
           <div style="font-size:12px;color:#6B7280;">Calculating optimal matches by distance, blood type & trust score</div>
         </div>
+        <div id="shortageBanner" class="shortage-banner"></div>
         <div id="triageMatchList" style="display:none;"></div>
       </div>
     </div>

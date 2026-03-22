@@ -14,8 +14,8 @@ const safeUser = (u) => ({
   location: u.location, createdAt: u.createdAt,
   // donor
   bloodType: u.bloodType, donations: u.donations, trustScore: u.trustScore,
-  livesSaved: u.livesSaved, isAvailable: u.isAvailable, organDonor: u.organDonor,
-  organsPledged: u.organsPledged, lastDonation: u.lastDonation,
+  livesSaved: u.livesSaved, isAvailable: u.isAvailable, status: u.status,
+  organDonor: u.organDonor, organsPledged: u.organsPledged, lastDonation: u.lastDonation,
   // receiver
   requiredBloodType: u.requiredBloodType, urgency: u.urgency, medicalCondition: u.medicalCondition,
   attendingHospital: u.attendingHospital, guardianName: u.guardianName,
@@ -143,14 +143,38 @@ router.put('/location', protect, async (req, res) => {
   await User.findByIdAndUpdate(req.user._id, {
     location: { type: 'Point', coordinates: [parseFloat(lng)||0, parseFloat(lat)||0], city, address },
     isAvailable: true,
+    status: 'available',
   });
   res.json({ message: 'Location updated' });
 });
 
 // ── PUT /api/auth/availability ────────────────────────
 router.put('/availability', protect, async (req, res) => {
-  await User.findByIdAndUpdate(req.user._id, { isAvailable: req.body.isAvailable });
-  res.json({ message: 'Availability updated' });
+  const isAvailable = req.body.isAvailable === true;
+  const status = isAvailable ? 'available' : 'busy';
+  await User.findByIdAndUpdate(req.user._id, { isAvailable, status });
+  res.json({ message: 'Availability updated', status });
+});
+
+// —— PUT /api/auth/status ——
+// Update donor availability status (available | busy | offline)
+router.put('/status', protect, async (req, res) => {
+  const { status } = req.body;
+  const allowed = ['available', 'busy', 'offline'];
+  if (!allowed.includes(status)) {
+    return res.status(400).json({ message: 'Invalid status value' });
+  }
+  const isAvailable = status === 'available';
+  const user = await User.findByIdAndUpdate(
+    req.user._id,
+    { status, isAvailable },
+    { new: true }
+  );
+
+  const io = req.app.get('io');
+  if (io) io.emit('donor_status_changed', { userId: user._id, status });
+
+  res.json({ user: safeUser(user), message: 'Status updated' });
 });
 
 // ── PUT /api/auth/profile ─────────────────────────────
